@@ -1,0 +1,169 @@
+.today-view {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.today-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.today-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.today-date {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* ── Action buttons ───────────────────────────────────────────── */
+.actions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.action-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.action-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  min-width: 140px;
+}
+
+.complete-msg {
+  font-size: 1.1rem;
+  color: var(--green);
+  font-weight: 600;
+  padding: 0.5rem 0;
+}
+
+.saving-text {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.card-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: -0.5rem 0 1rem;
+}
+
+/* ── Time picker ──────────────────────────────────────────────── */
+.time-picker {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.time-picker:focus {
+  border-color: var(--accent);
+}
+
+/* ── Time entries ─────────────────────────────────────────────── */
+.time-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.time-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.time-entry:last-child {
+  border-bottom: none;
+}
+
+.time-label {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.time-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.time-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ── Summary ──────────────────────────────────────────────────── */
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.summary-item.highlight {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.summary-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.summary-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.summary-value.large {
+  font-size: 1.4rem;
+}
+
+.today-date-bs {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 0.1rem;
+}

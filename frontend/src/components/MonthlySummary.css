@@ -1,0 +1,164 @@
+.monthly-view {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.monthly-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.monthly-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.monthly-subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* ── Month picker ─────────────────────────────────────────────── */
+.month-picker {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  width: fit-content;
+}
+
+.month-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+
+.month-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.month-year {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* ── Leave form ───────────────────────────────────────────────── */
+.leave-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 1rem;
+  align-items: end;
+}
+
+/* ── Table rows ───────────────────────────────────────────────── */
+.row-weekend td {
+  background: #f8fafc;
+  color: var(--text-muted);
+}
+
+.row-holiday td {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.row-today td {
+  background: #eff6ff;
+  font-weight: 600;
+}
+
+.row-paid-leave td {
+  background: #f0fdf4;
+}
+
+.row-unpaid-leave td {
+  background: #fff1f2;
+}
+
+/* ── Badges ───────────────────────────────────────────────────── */
+.badge-weekend {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.badge-holiday {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.badge-paid-leave {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.badge-unpaid-leave {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* ── Holiday & leave labels ───────────────────────────────────── */
+.holiday-name {
+  font-size: 0.72rem;
+  color: #854d0e;
+  margin-top: 0.2rem;
+  font-style: italic;
+}
+
+.leave-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+  font-style: italic;
+}
+
+.monthly-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.lang-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.lang-btn {
+  padding: 0.4rem 0.85rem;
+  border: none;
+  background: var(--card-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.lang-btn:hover { background: var(--bg); }
+
+.lang-active {
+  background: var(--accent) !important;
+  color: white !important;
+}
+
+.month-ad-range {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.td-date-ad {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
