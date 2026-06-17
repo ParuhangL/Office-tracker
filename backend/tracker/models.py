@@ -3,6 +3,39 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+WEEKDAY_CHOICES = [
+    (0, "Monday"),
+    (1, "Tuesday"),
+    (2, "Wednesday"),
+    (3, "Thursday"),
+    (4, "Friday"),
+    (5, "Saturday"),
+    (6, "Sunday"),
+]
+
+
+class Settings(models.Model):
+    """Singleton model for org-wide settings."""
+
+    weekend_day_1 = models.IntegerField(choices=WEEKDAY_CHOICES, default=5)  # Saturday
+    weekend_day_2 = models.IntegerField(choices=WEEKDAY_CHOICES, default=6)  # Sunday
+
+    class Meta:
+        verbose_name = "Settings"
+        verbose_name_plural = "Settings"
+
+    def __str__(self):
+        return "Org Settings"
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
 
 class UserProfile(models.Model):
     GENDER_CHOICES = [("M", "Male"), ("F", "Female"), ("O", "Other")]
@@ -11,6 +44,17 @@ class UserProfile(models.Model):
     required_hours = models.DecimalField(max_digits=4, decimal_places=1, default=8.0)
     is_active = models.BooleanField(default=True)
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, default="M")
+
+    # Per-user weekend override — both null means "use global default"
+    weekend_day_1 = models.IntegerField(choices=WEEKDAY_CHOICES, null=True, blank=True)
+    weekend_day_2 = models.IntegerField(choices=WEEKDAY_CHOICES, null=True, blank=True)
+
+    def get_weekend_days(self):
+        """Return the effective weekend day set for this user."""
+        if self.weekend_day_1 is not None and self.weekend_day_2 is not None:
+            return {self.weekend_day_1, self.weekend_day_2}
+        settings = Settings.get_solo()
+        return {settings.weekend_day_1, settings.weekend_day_2}
 
     def __str__(self):
         return f"{self.user.username} — {self.required_hours}h"

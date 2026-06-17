@@ -24,6 +24,7 @@ from .views import (
     AdminCorrectionListView,
     AdminCorrectionDetailView,
     AdminEditUserLogView,
+    AdminSettingsView,
 )
 
 urlpatterns = [
@@ -81,4 +82,5 @@ urlpatterns = [
         name="admin-correction-detail",
     ),
     path("admin/logs/edit/", AdminEditUserLogView.as_view(), name="admin-edit-log"),
+    path("admin/settings/", AdminSettingsView.as_view(), name="admin-settings"),
 ]

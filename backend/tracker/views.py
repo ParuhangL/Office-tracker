@@ -11,7 +11,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 import requests
 import csv
 
-from .models import TimeLog, UserProfile, Holiday, Leave, CorrectionRequest
+from .models import TimeLog, UserProfile, Holiday, Leave, CorrectionRequest, Settings
 from .serializers import (
     TimeLogSerializer,
     UserSerializer,
@@ -19,6 +19,7 @@ from .serializers import (
     HolidaySerializer,
     LeaveSerializer,
     CorrectionRequestSerializer,
+    SettingsSerializer,
 )
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -409,6 +410,27 @@ class AdminFetchHolidaysView(APIView):
         )
 
 
+# ── Settings ──────────────────────────────────────────────────────
+
+
+class AdminSettingsView(APIView):
+    """Global org-wide settings, including default weekend days."""
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        settings_obj = Settings.get_solo()
+        return Response(SettingsSerializer(settings_obj).data)
+
+    def patch(self, request):
+        settings_obj = Settings.get_solo()
+        serializer = SettingsSerializer(settings_obj, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 # ── Monthly Stats ─────────────────────────────────────────────────
 
 
@@ -421,6 +443,7 @@ class MonthlyStatsView(APIView):
         bs_month = request.query_params.get("bs_month")
 
         gender = request.user.profile.gender
+        weekend_day_set = request.user.profile.get_weekend_days()
 
         # Convert BS month to AD date range if BS params provided
         if bs_year and bs_month:
@@ -473,8 +496,8 @@ class MonthlyStatsView(APIView):
             all_days.append(current)
             current += timedelta(days=1)
 
-        # Weekends: Friday=4, Saturday=5
-        weekend_days = {d for d in all_days if d.weekday() in (4, 5)}
+        # Weekends: resolved per-user (override or global default)
+        weekend_days = {d for d in all_days if d.weekday() in weekend_day_set}
 
         # Holidays for this user
         holiday_dates = _get_holidays_for_year(start_ad.year, gender)
@@ -667,6 +690,29 @@ class AdminUserDetailView(APIView):
             user.profile.save()
         if "gender" in request.data:
             user.profile.gender = request.data["gender"]
+            user.profile.save()
+        if "weekend_day_1" in request.data or "weekend_day_2" in request.data:
+            d1 = request.data.get("weekend_day_1", None)
+            d2 = request.data.get("weekend_day_2", None)
+            # "Use global default" is signalled by sending both as null
+            if d1 is None and d2 is None:
+                user.profile.weekend_day_1 = None
+                user.profile.weekend_day_2 = None
+            elif d1 is not None and d2 is not None:
+                if d1 == d2:
+                    return Response(
+                        {"error": "The two weekend days must be different."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                user.profile.weekend_day_1 = d1
+                user.profile.weekend_day_2 = d2
+            else:
+                return Response(
+                    {
+                        "error": "Both weekend days must be set together, or both left empty to use the default."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             user.profile.save()
         return Response(UserSerializer(user).data)
 

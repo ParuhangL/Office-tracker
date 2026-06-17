@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import TimeLog, UserProfile, Holiday, Leave, CorrectionRequest
+from .models import TimeLog, UserProfile, Holiday, Leave, CorrectionRequest, Settings
 
 # ── User & Profile ────────────────────────────────────────────────
 
@@ -8,7 +8,13 @@ from .models import TimeLog, UserProfile, Holiday, Leave, CorrectionRequest
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ("required_hours", "is_active", "gender")
+        fields = (
+            "required_hours",
+            "is_active",
+            "gender",
+            "weekend_day_1",
+            "weekend_day_2",
+        )
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -20,6 +26,12 @@ class UserSerializer(serializers.ModelSerializer):
         source="profile.is_active", read_only=True
     )
     gender = serializers.CharField(source="profile.gender", read_only=True)
+    weekend_day_1 = serializers.IntegerField(
+        source="profile.weekend_day_1", read_only=True, allow_null=True
+    )
+    weekend_day_2 = serializers.IntegerField(
+        source="profile.weekend_day_2", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = User
@@ -32,6 +44,8 @@ class UserSerializer(serializers.ModelSerializer):
             "profile",
             "required_hours",
             "gender",
+            "weekend_day_1",
+            "weekend_day_2",
         )
 
 
@@ -43,11 +57,28 @@ class CreateUserSerializer(serializers.Serializer):
     )
     is_staff = serializers.BooleanField(default=False)
     gender = serializers.ChoiceField(choices=["M", "F", "O"], default="M")
+    weekend_day_1 = serializers.IntegerField(
+        min_value=0, max_value=6, required=False, allow_null=True, default=None
+    )
+    weekend_day_2 = serializers.IntegerField(
+        min_value=0, max_value=6, required=False, allow_null=True, default=None
+    )
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError("Username already exists.")
         return value
+
+    def validate(self, data):
+        d1 = data.get("weekend_day_1")
+        d2 = data.get("weekend_day_2")
+        if (d1 is None) != (d2 is None):
+            raise serializers.ValidationError(
+                "Both weekend days must be set together, or both left empty."
+            )
+        if d1 is not None and d1 == d2:
+            raise serializers.ValidationError("The two weekend days must be different.")
+        return data
 
     def create(self, validated_data):
         user = User.objects.create_user(
@@ -57,8 +88,26 @@ class CreateUserSerializer(serializers.Serializer):
         )
         user.profile.required_hours = validated_data.get("required_hours", 8.0)
         user.profile.gender = validated_data.get("gender", "M")
+        user.profile.weekend_day_1 = validated_data.get("weekend_day_1")
+        user.profile.weekend_day_2 = validated_data.get("weekend_day_2")
         user.profile.save()
         return user
+
+
+# ── Settings ──────────────────────────────────────────────────────
+
+
+class SettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Settings
+        fields = ("weekend_day_1", "weekend_day_2")
+
+    def validate(self, data):
+        d1 = data.get("weekend_day_1", getattr(self.instance, "weekend_day_1", None))
+        d2 = data.get("weekend_day_2", getattr(self.instance, "weekend_day_2", None))
+        if d1 == d2:
+            raise serializers.ValidationError("The two weekend days must be different.")
+        return data
 
 
 # ── Holiday ───────────────────────────────────────────────────────
