@@ -5,8 +5,14 @@ import {
   getAdminHolidays, createHoliday, updateHoliday,
   deleteHoliday, fetchHolidaysFromAPI,
   getAdminCorrections, resolveCorrection, adminEditLog,
+  getAdminSettings, updateAdminSettings,
 } from '../api'
 import './AdminDashboard.css'
+
+const WEEKDAY_LABELS = [
+  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+]
+const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 function AdminDashboard() {
   const [stats,        setStats]        = useState([])
@@ -42,6 +48,11 @@ function AdminDashboard() {
   // ── Edit required hours inline ───────────────────────────────────
   const [editingHours, setEditingHours] = useState({})
 
+  // ── Edit weekend override inline ─────────────────────────────────
+  // value shape while editing: { day1: number, day2: number }
+  const [editingWeekend, setEditingWeekend] = useState({})
+  const [weekendSaving,  setWeekendSaving]  = useState({})
+
   // ── Corrections state ────────────────────────────────────────────
   const [corrections,      setCorrections]      = useState([])
   const [correctionFilter, setCorrectionFilter] = useState('pending')
@@ -53,6 +64,14 @@ function AdminDashboard() {
   const [editLogSaving,  setEditLogSaving]  = useState(false)
   const [editLogSuccess, setEditLogSuccess] = useState(null)
 
+  // ── Org settings state ───────────────────────────────────────────
+  const [orgSettings,        setOrgSettings]        = useState(null) // { weekend_day_1, weekend_day_2 }
+  const [orgSettingsLoading, setOrgSettingsLoading]  = useState(false)
+  const [orgSettingsError,   setOrgSettingsError]    = useState(null)
+  const [orgSettingsSaving,  setOrgSettingsSaving]   = useState(false)
+  const [orgSettingsSuccess, setOrgSettingsSuccess]  = useState(null)
+  const [orgSettingsForm,    setOrgSettingsForm]     = useState({ day1: 5, day2: 6 })
+
   useEffect(() => { fetchAll() }, [])
   useEffect(() => {
     if (activeTab === 'holidays') fetchHolidays()
@@ -61,6 +80,14 @@ function AdminDashboard() {
   useEffect(() => {
     if (activeTab === 'corrections') fetchCorrections()
   }, [activeTab, correctionFilter])
+
+  useEffect(() => {
+    if (activeTab === 'settings') fetchOrgSettings()
+  }, [activeTab])
+
+  // Load org settings once on mount too, so the Users tab "(default)" label
+  // and weekendLabel() fallback have data even before visiting Settings tab.
+  useEffect(() => { fetchOrgSettings() }, [])
 
   const fetchAll = async () => {
     try {
@@ -132,6 +159,13 @@ function AdminDashboard() {
     return `${hour}:${String(m).padStart(2, '0')} ${ampm}`
   }
 
+  const weekendLabel = (day1, day2) => {
+    if (day1 === null || day1 === undefined || day2 === null || day2 === undefined) {
+      return null
+    }
+    return `${WEEKDAY_SHORT[day1]} / ${WEEKDAY_SHORT[day2]}`
+  }
+
   // ── Create user ──────────────────────────────────────────────────
   const handleCreateUser = async () => {
     setCreateError(null)
@@ -189,6 +223,53 @@ function AdminDashboard() {
     a.download = userId ? `user_${userId}_logs.csv` : 'all_logs.csv'
     a.click()
     window.URL.revokeObjectURL(url)
+  }
+
+  // ── Weekend override handlers ────────────────────────────────────
+  const startEditingWeekend = (user) => {
+    const hasOverride = user.weekend_day_1 !== null && user.weekend_day_1 !== undefined
+    setEditingWeekend(prev => ({
+      ...prev,
+      [user.id]: hasOverride
+        ? { day1: user.weekend_day_1, day2: user.weekend_day_2 }
+        : { day1: orgSettings?.weekend_day_1 ?? 5, day2: orgSettings?.weekend_day_2 ?? 6 },
+    }))
+  }
+
+  const cancelEditingWeekend = (userId) => {
+    setEditingWeekend(prev => { const n = { ...prev }; delete n[userId]; return n })
+  }
+
+  const handleSaveWeekend = async (userId) => {
+    const val = editingWeekend[userId]
+    if (!val) return
+    if (val.day1 === val.day2) {
+      setError('The two weekend days must be different.')
+      return
+    }
+    setWeekendSaving(prev => ({ ...prev, [userId]: true }))
+    try {
+      await patchUser(userId, { weekend_day_1: val.day1, weekend_day_2: val.day2 })
+      cancelEditingWeekend(userId)
+      fetchAll()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update weekend days.')
+    } finally {
+      setWeekendSaving(prev => { const n = { ...prev }; delete n[userId]; return n })
+    }
+  }
+
+  const handleResetWeekendToDefault = async (userId) => {
+    setWeekendSaving(prev => ({ ...prev, [userId]: true }))
+    try {
+      await patchUser(userId, { weekend_day_1: null, weekend_day_2: null })
+      cancelEditingWeekend(userId)
+      fetchAll()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to reset weekend days.')
+    } finally {
+      setWeekendSaving(prev => { const n = { ...prev }; delete n[userId]; return n })
+    }
   }
 
   // ── Holiday handlers ─────────────────────────────────────────────
@@ -287,6 +368,43 @@ function AdminDashboard() {
     setEditLogError(null)
   }
 
+  // ── Org settings handlers ────────────────────────────────────────
+  const fetchOrgSettings = async () => {
+    setOrgSettingsLoading(true)
+    setOrgSettingsError(null)
+    try {
+      const res = await getAdminSettings()
+      setOrgSettings(res.data)
+      setOrgSettingsForm({ day1: res.data.weekend_day_1, day2: res.data.weekend_day_2 })
+    } catch {
+      setOrgSettingsError('Failed to load org settings.')
+    } finally {
+      setOrgSettingsLoading(false)
+    }
+  }
+
+  const handleSaveOrgSettings = async () => {
+    setOrgSettingsError(null)
+    if (orgSettingsForm.day1 === orgSettingsForm.day2) {
+      setOrgSettingsError('The two weekend days must be different.')
+      return
+    }
+    setOrgSettingsSaving(true)
+    try {
+      const res = await updateAdminSettings({
+        weekend_day_1: orgSettingsForm.day1,
+        weekend_day_2: orgSettingsForm.day2,
+      })
+      setOrgSettings(res.data)
+      setOrgSettingsSuccess('Default weekend days updated.')
+      setTimeout(() => setOrgSettingsSuccess(null), 4000)
+    } catch (err) {
+      setOrgSettingsError(err.response?.data?.non_field_errors?.[0] || 'Failed to save settings.')
+    } finally {
+      setOrgSettingsSaving(false)
+    }
+  }
+
   // ── Totals ───────────────────────────────────────────────────────
   const totalDays      = stats.reduce((s, u) => s + u.total_logs, 0)
   const totalCompleted = stats.reduce((s, u) => s + u.completed_days, 0)
@@ -335,6 +453,10 @@ function AdminDashboard() {
             <span className="tab-badge">{corrections.length}</span>
           )}
         </button>
+        <button
+          className={`tab-btn ${activeTab === 'settings' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('settings')}
+        >⚙️ Settings</button>
         {activeTab === 'logs' && selectedUser && (
           <button className="tab-btn tab-active">
             📋 {selectedUser.username}'s Logs
@@ -501,6 +623,7 @@ function AdminDashboard() {
                   <th>Role</th>
                   <th>Gender</th>
                   <th>Required Hours</th>
+                  <th>Weekend</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -546,6 +669,77 @@ function AdminDashboard() {
                           }
                         >
                           {u.required_hours}h ✏️
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {editingWeekend[u.id] !== undefined ? (
+                        <div className="inline-edit">
+                          <select
+                            className="form-input inline-input"
+                            style={{ minWidth: 90 }}
+                            value={editingWeekend[u.id].day1}
+                            onChange={e =>
+                              setEditingWeekend(p => ({
+                                ...p,
+                                [u.id]: { ...p[u.id], day1: Number(e.target.value) },
+                              }))
+                            }
+                          >
+                            {WEEKDAY_LABELS.map((label, idx) => (
+                              <option key={idx} value={idx}>{label}</option>
+                            ))}
+                          </select>
+                          <select
+                            className="form-input inline-input"
+                            style={{ minWidth: 90 }}
+                            value={editingWeekend[u.id].day2}
+                            onChange={e =>
+                              setEditingWeekend(p => ({
+                                ...p,
+                                [u.id]: { ...p[u.id], day2: Number(e.target.value) },
+                              }))
+                            }
+                          >
+                            {WEEKDAY_LABELS.map((label, idx) => (
+                              <option key={idx} value={idx}>{label}</option>
+                            ))}
+                          </select>
+                          <button
+                            className="btn btn-green btn-sm"
+                            onClick={() => handleSaveWeekend(u.id)}
+                            disabled={weekendSaving[u.id]}
+                          >✓</button>
+                          {(u.weekend_day_1 !== null && u.weekend_day_1 !== undefined) && (
+                            <button
+                              className="btn btn-orange btn-sm"
+                              onClick={() => handleResetWeekendToDefault(u.id)}
+                              disabled={weekendSaving[u.id]}
+                              title="Reset to org default"
+                            >Default</button>
+                          )}
+                          <button
+                            className="btn btn-gray btn-sm"
+                            onClick={() => cancelEditingWeekend(u.id)}
+                          >✕</button>
+                        </div>
+                      ) : (
+                        <span
+                          className="editable-hours"
+                          onClick={() => startEditingWeekend(u)}
+                          title={
+                            u.weekend_day_1 !== null && u.weekend_day_1 !== undefined
+                              ? 'Custom weekend'
+                              : 'Using org default'
+                          }
+                        >
+                          {weekendLabel(u.weekend_day_1, u.weekend_day_2)
+                            || (orgSettings ? weekendLabel(orgSettings.weekend_day_1, orgSettings.weekend_day_2) : '—')}
+                          {' '}
+                          {(u.weekend_day_1 === null || u.weekend_day_1 === undefined) && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(default)</span>
+                          )}
+                          {' ✏️'}
                         </span>
                       )}
                     </td>
@@ -922,6 +1116,73 @@ function AdminDashboard() {
         </div>
       )}
 
+      {/* ── SETTINGS TAB ─────────────────────────────────────────── */}
+      {activeTab === 'settings' && (
+        <div className="card">
+          <h2>Organization Settings</h2>
+          <p style={{ color: 'var(--text-muted)', marginTop: '-0.5rem', marginBottom: '1.25rem' }}>
+            Set the default weekend days for the whole office. Individual users can still
+            have their own custom weekend set from the Users tab.
+          </p>
+
+          {orgSettingsLoading ? (
+            <div className="loading">Loading settings...</div>
+          ) : (
+            <>
+              {orgSettingsError && <div className="error">{orgSettingsError}</div>}
+              {orgSettingsSuccess && <div className="success-msg">{orgSettingsSuccess}</div>}
+
+              <div className="create-form-grid" style={{ maxWidth: 420 }}>
+                <div className="form-group">
+                  <label className="form-label">Weekend Day 1</label>
+                  <select
+                    className="form-input"
+                    value={orgSettingsForm.day1}
+                    onChange={e =>
+                      setOrgSettingsForm(p => ({ ...p, day1: Number(e.target.value) }))
+                    }
+                  >
+                    {WEEKDAY_LABELS.map((label, idx) => (
+                      <option key={idx} value={idx}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Weekend Day 2</label>
+                  <select
+                    className="form-input"
+                    value={orgSettingsForm.day2}
+                    onChange={e =>
+                      setOrgSettingsForm(p => ({ ...p, day2: Number(e.target.value) }))
+                    }
+                  >
+                    {WEEKDAY_LABELS.map((label, idx) => (
+                      <option key={idx} value={idx}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <button
+                className="btn btn-green"
+                onClick={handleSaveOrgSettings}
+                disabled={orgSettingsSaving}
+                style={{ marginTop: '0.5rem' }}
+              >
+                {orgSettingsSaving ? 'Saving...' : 'Save Default Weekend'}
+              </button>
+
+              {orgSettings && (
+                <p style={{ marginTop: '1rem', fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+                  Current default: <strong>{WEEKDAY_LABELS[orgSettings.weekend_day_1]}</strong> &{' '}
+                  <strong>{WEEKDAY_LABELS[orgSettings.weekend_day_2]}</strong>. This applies to
+                  every user who doesn't have a custom weekend set.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── LOGS TAB ─────────────────────────────────────────────── */}
       {activeTab === 'logs' && selectedUser && (

@@ -88,3 +88,6 @@ export const resolveCorrection   = (id, data) =>
 
 // ── Admin edit any user log ───────────────────────────────────────
 export const adminEditLog = (data) => api.post('/admin/logs/edit/', data)
+// ── Admin settings (org-wide weekend default) ─────────────────────
+export const getAdminSettings    = ()     => api.get('/admin/settings/')
+export const updateAdminSettings = (data) => api.patch('/admin/settings/', data)
