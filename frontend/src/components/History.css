@@ -251,3 +251,97 @@
   background: var(--accent) !important;
   color: white !important;
 }
+
+/* ── Missing days section ─────────────────────────────────────── */
+.missing-days-section {
+  margin-bottom: 2rem;
+}
+
+.missing-days-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid #fed7aa;
+}
+
+.missing-days-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.missing-days-count {
+  font-size: 0.82rem;
+  color: #b45309;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+}
+
+.missing-day-card {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.missing-day-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.backdated-form {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #fed7aa;
+}
+
+.backdated-time-inputs {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.backdated-time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 130px;
+}
+
+.backdated-time-field label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.backdated-time-field input[type="time"] {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  outline: none;
+  font-family: inherit;
+}
+
+.backdated-time-field input[type="time"]:focus {
+  border-color: var(--accent);
+}
+
+/* ── Backdated badge ──────────────────────────────────────────── */
+.badge-backdated {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}

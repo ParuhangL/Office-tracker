@@ -198,6 +198,73 @@ class TodayLogView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class BackdatedLogView(APIView):
+    """Lets a user create/fill a log for a missed past day, within the current BS month."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from nepali_datetime import date as nepali_date
+
+        log_date_str = request.data.get("date")
+        note = request.data.get("note", "").strip()
+
+        if not log_date_str:
+            return Response(
+                {"error": "date is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            log_date = datetime.strptime(log_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        today = date.today()
+
+        if log_date > today:
+            return Response(
+                {"error": "Cannot add a record for a future date."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Confirm log_date falls within the current BS month
+        today_bs = nepali_date.from_datetime_date(today)
+        log_date_bs = nepali_date.from_datetime_date(log_date)
+
+        if log_date_bs.year != today_bs.year or log_date_bs.month != today_bs.month:
+            return Response(
+                {"error": "You can only backdate entries within the current month."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if log_date == today:
+            return Response(
+                {"error": "Use today's entry screen for today's record."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        log, created = TimeLog.objects.get_or_create(
+            user=request.user,
+            date=log_date,
+            defaults={"is_backdated": True, "backdated_note": note},
+        )
+
+        if not created:
+            # Already exists — treat this like filling in/updating a missed entry
+            log.is_backdated = True
+            if note:
+                log.backdated_note = note
+
+        serializer = TimeLogSerializer(log, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(TimeLogSerializer(log).data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class ActionView(APIView):
     permission_classes = [IsAuthenticated]
 

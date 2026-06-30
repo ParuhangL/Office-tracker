@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { formatBSDate, todayBS, BS_MONTHS_EN } from '../utils/nepaliDate'
 import './History.css'
-import { getAllLogs, deleteLog, createCorrection } from '../api'
+import { getAllLogs, deleteLog, createCorrection, getMonthlyStats, addBackdatedLog } from '../api'
 
 function History() {
   const [logs,    setLogs]    = useState([])
@@ -12,7 +12,17 @@ function History() {
   const [correctionNote, setCorrectionNote] = useState('')
   const [correctionSent, setCorrectionSent] = useState({})  // { logId: true }
 
-  useEffect(() => { fetchLogs() }, [])
+  // ── Missing days (backdated entry) ──────────────────────────────
+  const [missingDays,    setMissingDays]    = useState([])
+  const [addingFor,      setAddingFor]      = useState(null)   // date string, e.g. '2026-06-15'
+  const [backdatedForm,  setBackdatedForm]  = useState({ sign_in: '', lunch_start: '', lunch_end: '', sign_out: '', note: '' })
+  const [backdatedError, setBackdatedError] = useState(null)
+  const [backdatedSaving, setBackdatedSaving] = useState(false)
+
+  useEffect(() => {
+    fetchLogs()
+    fetchMissingDays()
+  }, [])
 
   const fetchLogs = async (retries = 2) => {
     try {
@@ -27,6 +37,20 @@ function History() {
       }
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchMissingDays = async () => {
+    try {
+      const { year, month } = todayBS()
+      const res = await getMonthlyStats(year, month)
+      const todayStr = new Date().toISOString().slice(0, 10)
+      const missing = res.data.daily.filter(
+        d => d.status === 'no_log' && d.date < todayStr
+      )
+      setMissingDays(missing)
+    } catch {
+      // Non-critical — if this fails, history still loads normally
     }
   }
 
@@ -52,6 +76,40 @@ function History() {
       setCorrectionSent(prev => ({ ...prev, [log.id]: true }))
     } catch {
       setError('Failed to send correction request.')
+    }
+  }
+
+  // ── Backdated entry handlers ─────────────────────────────────────
+  const openBackdatedForm = (date) => {
+    setAddingFor(date)
+    setBackdatedForm({ sign_in: '', lunch_start: '', lunch_end: '', sign_out: '', note: '' })
+    setBackdatedError(null)
+  }
+
+  const closeBackdatedForm = () => {
+    setAddingFor(null)
+    setBackdatedError(null)
+  }
+
+  const handleBackdatedSubmit = async (date) => {
+    setBackdatedError(null)
+    setBackdatedSaving(true)
+    const payload = { date }
+    if (backdatedForm.sign_in)     payload.sign_in     = backdatedForm.sign_in
+    if (backdatedForm.lunch_start) payload.lunch_start = backdatedForm.lunch_start
+    if (backdatedForm.lunch_end)   payload.lunch_end   = backdatedForm.lunch_end
+    if (backdatedForm.sign_out)    payload.sign_out    = backdatedForm.sign_out
+    if (backdatedForm.note.trim()) payload.note        = backdatedForm.note.trim()
+
+    try {
+      await addBackdatedLog(payload)
+      setAddingFor(null)
+      setMissingDays(prev => prev.filter(d => d.date !== date))
+      fetchLogs()
+    } catch (err) {
+      setBackdatedError(err.response?.data?.error || 'Failed to add record. Please try again.')
+    } finally {
+      setBackdatedSaving(false)
     }
   }
 
@@ -102,21 +160,8 @@ function History() {
   const groupByBSMonth = (logs) => {
     const groups = {}
     logs.forEach(log => {
-      const bs = formatBSDate(log.date, 'en')
-        ? (() => {
-            // Get BS year and month for grouping key
-            const nd = formatBSDate(log.date, 'en')
-            // We need raw BS data for grouping
-            return nd
-          })()
-        : null
-
-      // Use a simpler approach: extract BS month from formatBSDate
-      // We'll group by the BS month name + year string
       const bsLabel = formatBSDate(log.date, lang)
-      // Extract just month+year for group key
       const parts   = bsLabel.split(' ')
-      // "Baisakh 15, 2081" -> group key "Baisakh 2081"
       const groupKey = lang === 'en'
         ? `${parts[0]} ${parts[2]?.replace(',', '')}`
         : `${parts[0]} ${parts[2]?.replace(',', '')}`
@@ -158,6 +203,117 @@ function History() {
 
       {error && <div className="error">{error}</div>}
 
+      {/* Missing days section */}
+      {missingDays.length > 0 && (
+        <div className="missing-days-section">
+          <div className="missing-days-header">
+            <span className="missing-days-title">
+              {lang === 'np' ? '⚠️ छुटेका दिनहरू' : '⚠️ Missing Days'}
+            </span>
+            <span className="missing-days-count">
+              {lang === 'np'
+                ? `${missingDays.length} दिन`
+                : `${missingDays.length} day${missingDays.length > 1 ? 's' : ''}`}
+            </span>
+          </div>
+
+          {missingDays.map(day => (
+            <div key={day.date} className="missing-day-card">
+              <div className="missing-day-row">
+                <div className="log-date-block">
+                  <span className="log-date-bs">{formatBSDate(day.date, lang)}</span>
+                  <span className="log-date-ad">
+                    {new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', {
+                      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+                    })}
+                  </span>
+                </div>
+                <button
+                  className="btn btn-orange btn-sm"
+                  onClick={() => addingFor === day.date ? closeBackdatedForm() : openBackdatedForm(day.date)}
+                >
+                  {addingFor === day.date
+                    ? (lang === 'np' ? 'बन्द' : 'Close')
+                    : (lang === 'np' ? '+ रेकर्ड थप्नुस्' : '+ Add Record')}
+                </button>
+              </div>
+
+              {addingFor === day.date && (
+                <div className="backdated-form">
+                  {backdatedError && <div className="error">{backdatedError}</div>}
+
+                  <div className="backdated-time-inputs">
+                    <div className="backdated-time-field">
+                      <label>{lang === 'np' ? '🟢 आउनु' : '🟢 Sign In'}</label>
+                      <input
+                        type="time"
+                        value={backdatedForm.sign_in}
+                        onChange={e => setBackdatedForm(f => ({ ...f, sign_in: e.target.value }))}
+                      />
+                    </div>
+                    <div className="backdated-time-field">
+                      <label>{lang === 'np' ? '🍽️ खाजा सुरु' : '🍽️ Lunch Start'}</label>
+                      <input
+                        type="time"
+                        value={backdatedForm.lunch_start}
+                        onChange={e => setBackdatedForm(f => ({ ...f, lunch_start: e.target.value }))}
+                      />
+                    </div>
+                    <div className="backdated-time-field">
+                      <label>{lang === 'np' ? '🍽️ खाजा अन्त्य' : '🍽️ Lunch End'}</label>
+                      <input
+                        type="time"
+                        value={backdatedForm.lunch_end}
+                        onChange={e => setBackdatedForm(f => ({ ...f, lunch_end: e.target.value }))}
+                      />
+                    </div>
+                    <div className="backdated-time-field">
+                      <label>{lang === 'np' ? '🔴 जानु' : '🔴 Sign Out'}</label>
+                      <input
+                        type="time"
+                        value={backdatedForm.sign_out}
+                        onChange={e => setBackdatedForm(f => ({ ...f, sign_out: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <textarea
+                    className="correction-textarea"
+                    rows={2}
+                    placeholder={
+                      lang === 'np'
+                        ? 'किन छुट्यो? (वैकल्पिक)'
+                        : 'Why was this missed? (optional)'
+                    }
+                    value={backdatedForm.note}
+                    onChange={e => setBackdatedForm(f => ({ ...f, note: e.target.value }))}
+                  />
+
+                  <div className="correction-actions">
+                    <button
+                      className="btn btn-green btn-sm"
+                      onClick={() => handleBackdatedSubmit(day.date)}
+                      disabled={backdatedSaving}
+                    >
+                      {backdatedSaving
+                        ? (lang === 'np' ? 'सेव हुँदै...' : 'Saving...')
+                        : (lang === 'np' ? 'सेव गर्नुस्' : 'Save Record')}
+                    </button>
+                    <button
+                      className="btn btn-gray btn-sm"
+                      onClick={closeBackdatedForm}
+                      disabled={backdatedSaving}
+                    >
+                      {lang === 'np' ? 'रद्द' : 'Cancel'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {logs.length === 0 ? (
         <div className="card">
           <p className="empty-state">
@@ -192,6 +348,11 @@ function History() {
                     </span>
                   </div>
                   <div className="log-card-actions">
+                    {log.is_backdated && (
+                      <span className="badge badge-backdated" title={log.backdated_note || ''}>
+                        🕓 {lang === 'np' ? 'पछि थपिएको' : 'Backdated'}
+                      </span>
+                    )}
                     <span className={getBadgeClass(log.status)}>
                       {getStatusLabel(log.status)}
                     </span>
@@ -268,7 +429,7 @@ function History() {
                     </span>
                   </div>
                 </div>
-                
+
                 {/* Correction request form */}
                 {correcting === log.id && (
                   <div className="correction-form">

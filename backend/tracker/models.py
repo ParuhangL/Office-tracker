@@ -115,6 +115,8 @@ class TimeLog(models.Model):
     lunch_start = models.TimeField(null=True, blank=True)
     lunch_end = models.TimeField(null=True, blank=True)
     sign_out = models.TimeField(null=True, blank=True)
+    is_backdated = models.BooleanField(default=False)
+    backdated_note = models.CharField(max_length=200, blank=True)
 
     class Meta:
         unique_together = ("user", "date")

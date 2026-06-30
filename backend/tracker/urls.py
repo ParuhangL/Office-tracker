@@ -7,6 +7,7 @@ from .views import (
     TimeLogDetailView,
     TodayLogView,
     ActionView,
+    BackdatedLogView,
     LeaveListCreateView,
     LeaveDetailView,
     HolidayListView,
@@ -83,4 +84,7 @@ urlpatterns = [
     ),
     path("admin/logs/edit/", AdminEditUserLogView.as_view(), name="admin-edit-log"),
     path("admin/settings/", AdminSettingsView.as_view(), name="admin-settings"),
+    path("today/", TodayLogView.as_view(), name="today"),
+    path("action/", ActionView.as_view(), name="action"),
+    path("backdated/", BackdatedLogView.as_view(), name="backdated-log"),
 ]

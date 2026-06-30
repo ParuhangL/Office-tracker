@@ -91,3 +91,5 @@ export const adminEditLog = (data) => api.post('/admin/logs/edit/', data)
 // ── Admin settings (org-wide weekend default) ─────────────────────
 export const getAdminSettings    = ()     => api.get('/admin/settings/')
 export const updateAdminSettings = (data) => api.patch('/admin/settings/', data)
+
+export const addBackdatedLog = (data) => api.post('/backdated/', data)

@@ -167,6 +167,8 @@ class TimeLogSerializer(serializers.ModelSerializer):
             "lunch_duration_minutes",
             "lunch_difference_minutes",
             "lunch_difference_formatted",
+            "is_backdated",
+            "backdated_note",
         )
 
     def validate(self, data):
